@@ -35,8 +35,8 @@ const daysBetween = (d1,d2) => Math.max(0, Math.floor((d2-d1)/86400000));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
-const STORAGE_BATCHES = "farmiq_batches";
-const STORAGE_ACTIVE  = "farmiq_active_batch";
+const STORAGE_BATCHES = "vafarmer_poultryiq_batches";
+const STORAGE_ACTIVE  = "vafarmer_poultryiq_active_batch";
 
 // ─── Default batch factory ────────────────────────────────────────────────────
 const makeBatch = (overrides = {}) => ({
@@ -179,7 +179,7 @@ function exportPDF(batch, calc) {
       ].join(""));
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>FarmIQ Report – ${batch.name}</title>
+    <title>VAFARMER PoultryIQ Report – ${batch.name}</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0;}
       body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:32px;}
@@ -197,7 +197,7 @@ function exportPDF(batch, calc) {
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#4f46e5,#6366f1);border-radius:14px;padding:28px 32px;margin-bottom:28px;color:#fff;">
-      <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8;margin-bottom:4px;">FarmIQ – PoultryTracker</div>
+      <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8;margin-bottom:4px;">VAFARMER – PoultryIQ</div>
       <div style="font-size:26px;font-weight:800;margin-bottom:6px;">${batch.name}</div>
       <div style="display:flex;gap:24px;font-size:13px;opacity:.85;flex-wrap:wrap;">
         <span>🐓 ${batch.farm.type.charAt(0).toUpperCase()+batch.farm.type.slice(1)}</span>
@@ -255,7 +255,7 @@ function exportPDF(batch, calc) {
 
     <!-- Footer -->
     <div style="margin-top:32px;border-top:1px solid #e2e8f0;padding-top:14px;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
-      <span>FarmIQ – PoultryTracker &nbsp;|&nbsp; Confidential Investor Report</span>
+      <span>VAFARMER – PoultryIQ &nbsp;|&nbsp; Confidential Investor Report</span>
       <span>Generated: ${dateStr}</span>
     </div>
   </body></html>`;
@@ -465,7 +465,7 @@ export default function App() {
       <aside className={`${sidebarOpen?"w-56":"w-16"} flex-shrink-0 bg-slate-900 flex flex-col transition-all duration-200`}>
         <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700">
           <span className="text-2xl">🐔</span>
-          {sidebarOpen && <span className="text-white font-bold text-sm leading-tight">FarmIQ<br/><span className="text-indigo-400 font-normal text-xs">PoultryTracker</span></span>}
+          {sidebarOpen && <span className="text-white font-bold text-sm leading-tight">VAFARMER<br/><span className="text-indigo-400 font-normal text-xs">PoultryIQ</span></span>}
           <button onClick={()=>setSidebarOpen(p=>!p)} className="ml-auto text-slate-400 hover:text-white">
             <IcChevron dir={sidebarOpen?"left":"right"}/>
           </button>
@@ -483,7 +483,7 @@ export default function App() {
         <div className="px-4 py-4 border-t border-slate-700">
           <div className={`flex items-center gap-2 ${!sidebarOpen&&"justify-center"}`}>
             <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
-            {sidebarOpen && <div><p className="text-white text-xs font-medium">FarmIQ Admin</p><p className="text-slate-400 text-xs">Farm Manager</p></div>}
+            {sidebarOpen && <div><p className="text-white text-xs font-medium">VAFARMER Admin</p><p className="text-slate-400 text-xs">Farm Manager</p></div>}
           </div>
         </div>
       </aside>
