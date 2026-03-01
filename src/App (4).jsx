@@ -1523,5 +1523,5 @@ export default function App() {
     );
   }
 
-  return session ? <Dashboard /> : <AuthScreen />;
+  return session ? <Dashboard session={session} /> : <AuthScreen />;
 }
