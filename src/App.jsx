@@ -3,6 +3,7 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import { supabase } from "./supabase";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20 }) => (
@@ -324,9 +325,9 @@ const AlertCard = ({ type="warning", title, message }) => {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// APP
+// DASHBOARD (auth-protected)
 // ═════════════════════════════════════════════════════════════════════════════
-export default function App() {
+function Dashboard() {
 
   // ── 1. State — hydrated from localStorage on first render ─────────────────
   const [batches, setBatches] = useState(() => {
@@ -1374,4 +1375,136 @@ function BatchComparison({ batches, activeBatchId, onSwitch }) {
       </Card>
     </>
   );
+}
+// ═════════════════════════════════════════════════════════════════════════════
+// AUTH SCREEN
+// ═════════════════════════════════════════════════════════════════════════════
+function AuthScreen() {
+  const [mode, setMode]       = useState("login");   // "login" | "signup"
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice]   = useState("");
+
+  const handle = async (e) => {
+    e.preventDefault();
+    setError(""); setNotice(""); setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setNotice("Account created — check your email to confirm, then log in.");
+        setMode("login");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // session listener in App() will handle the redirect
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 font-sans">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-3">🐔</div>
+          <h1 className="text-2xl font-bold text-slate-800">VAFARMER</h1>
+          <p className="text-sm text-indigo-500 font-medium mt-0.5">PoultryIQ</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+          <h2 className="text-lg font-bold text-slate-800 mb-6">
+            {mode === "login" ? "Sign in to your account" : "Create an account"}
+          </h2>
+
+          {notice && (
+            <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl px-4 py-3">
+              {notice}
+            </div>
+          )}
+          {error && (
+            <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handle} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Email</label>
+              <input
+                type="email" required autoComplete="email"
+                value={email} onChange={e => setEmail(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Password</label>
+              <input
+                type="password" required autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                value={password} onChange={e => setPassword(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit" disabled={loading}
+              className="mt-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
+              {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+
+          <p className="mt-5 text-center text-xs text-slate-400">
+            {mode === "login" ? "Don't have an account?" : "Already have an account?"}
+            {" "}
+            <button
+              onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); setNotice(""); }}
+              className="text-indigo-600 font-medium hover:underline">
+              {mode === "login" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// APP — session gate
+// ═════════════════════════════════════════════════════════════════════════════
+export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = loading
+
+  useEffect(() => {
+    // Hydrate session on mount
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session ?? null);
+    });
+    // Listen for sign-in / sign-out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Loading splash — prevents layout flash
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+        <div className="text-center">
+          <div className="text-4xl mb-3">🐔</div>
+          <p className="text-sm text-slate-400">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return session ? <Dashboard /> : <AuthScreen />;
 }
