@@ -644,12 +644,27 @@ function Dashboard() {
               {sidebarOpen && <span>{label}</span>}
             </button>
           ))}
-        </nav>
         <div className="px-4 py-4 border-t border-slate-700">
-          <div className={`flex items-center gap-2 ${!sidebarOpen&&"justify-center"}`}>
-            <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
-            {sidebarOpen && <div><p className="text-white text-xs font-medium">VAFARMER Admin</p><p className="text-slate-400 text-xs">Farm Manager</p></div>}
-          </div>
+  <div className={`flex items-center gap-2 ${!sidebarOpen&&"justify-center"}`}>
+    <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
+    {sidebarOpen && (
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-xs font-medium truncate">VAFARMER Admin</p>
+        <p className="text-slate-400 text-xs">Farm Manager</p>
+      </div>
+    )}
+  </div>
+  {sidebarOpen && (
+    <button
+      onClick={() => supabase.auth.signOut()}
+      className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-colors">
+      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+      </svg>
+      Sign Out
+    </button>
+  )}
+</div>
         </div>
       </aside>
 
