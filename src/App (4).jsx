@@ -327,53 +327,47 @@ const AlertCard = ({ type="warning", title, message }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 // DASHBOARD (auth-protected)
 // ═════════════════════════════════════════════════════════════════════════════
-function Dashboard({ session }) {
+function Dashboard() {
 
-  // ── 1. State ───────────────────────────────────────────────────────────────
-  const [batches, setBatches] = useState([]);
-  const [activeBatchId, setActiveBatchId] = useState(null);
-  const [selectedEnterprise, setSelectedEnterprise] = useState("broiler");
-  const [loading, setLoading] = useState(true);
+  // ── 1. State — hydrated from localStorage on first render ─────────────────
+  const [batches, setBatches] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_BATCHES);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [makeBatch({ name: "Batch Jan 2026" })];
+  });
 
-  // ── 2. Load data from Supabase on mount ───────────────────────────────────
+  const [activeBatchId, setActiveBatchId] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_ACTIVE);
+      if (saved) return saved;
+    } catch {}
+    return batches[0]?.id ?? null;
+  });
+
+  // Global enterprise filter — persisted so the user returns to the same
+  // context on reload.  Switching enterprise never erases batch data.
+  const [selectedEnterprise, setSelectedEnterprise] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_ENTERPRISE);
+      if (saved === "broiler" || saved === "layer") return saved;
+    } catch {}
+    return "broiler";
+  });
+
+  // ── 2. Persistence effects ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!session) return;
-    const load = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("Batches")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: true });
-      if (!error && data && data.length > 0) {
-        const loaded = data.map(r => r.data);
-        setBatches(loaded);
-        setActiveBatchId(loaded[0]?.id ?? null);
-      } else {
-        setBatches([]);
-        setActiveBatchId(null);
-      }
-      setLoading(false);
-    };
-    load();
-  }, [session]);
-
-  // ── 3. Save batches to Supabase whenever they change ──────────────────────
-  const saveToSupabase = useCallback(async (updatedBatches) => {
-    if (!session) return;
-    const userId = session.user.id;
-    await supabase.from("Batches").delete().eq("user_id", userId);
-    if (updatedBatches.length > 0) {
-      await supabase.from("Batches").insert(
-        updatedBatches.map(b => ({ user_id: userId, data: b }))
-      );
-    }
-  }, [session]);
+    try { localStorage.setItem(STORAGE_BATCHES, JSON.stringify(batches)); } catch {}
+  }, [batches]);
 
   useEffect(() => {
-    if (!session || loading) return;
-    saveToSupabase(batches);
-  }, [batches]); // eslint-disable-line react-hooks/exhaustive-deps
+    try { localStorage.setItem(STORAGE_ACTIVE, activeBatchId ?? ""); } catch {}
+  }, [activeBatchId]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_ENTERPRISE, selectedEnterprise); } catch {}
+  }, [selectedEnterprise]);
 
   // ── 3. UI state ────────────────────────────────────────────────────────────
   const [page, setPage]               = useState("overview");
@@ -496,16 +490,19 @@ function Dashboard({ session }) {
   }, [activeBatch, updateBatch]);
 
   // ── 9. Reset — clears ALL state and ALL localStorage keys ─────────────────
-  const resetAllData = useCallback(async () => {
+  const resetAllData = useCallback(() => {
     if (!window.confirm("Reset ALL data? This will erase every batch and cannot be undone.")) return;
-    if (session) {
-      await supabase.from("Batches").delete().eq("user_id", session.user.id);
-    }
-    setBatches([]);
-    setActiveBatchId(null);
-    setSelectedEnterprise("broiler");
+    const def = [makeBatch({ name: "Batch Jan 2026" })];
+    setBatches(def);
+    setActiveBatchId(def[0].id);
+    setSelectedEnterprise("broiler");      // reset enterprise to default
     setPage("overview");
-  }, [session]);
+    try {
+      localStorage.removeItem(STORAGE_BATCHES);
+      localStorage.removeItem(STORAGE_ACTIVE);
+      localStorage.removeItem(STORAGE_ENTERPRISE);
+    } catch {}
+  }, []);
 
   // ── Cash flow data ─────────────────────────────────────────────────────────
   const cashFlowData = useMemo(() => {
@@ -576,17 +573,7 @@ function Dashboard({ session }) {
     { id:"comparison", label:"Batch Compare", Icon:IcBatch },
   ];
 
-  // ── 10. Loading state ─────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-slate-50 font-sans">
-      <div className="text-center">
-        <div className="text-4xl mb-3">🐔</div>
-        <p className="text-sm text-slate-400">Loading your farm data…</p>
-      </div>
-    </div>
-  );
-
-  // ── 11. Enterprise-aware empty-state guard ────────────────────────────────
+  // ── 10. Enterprise-aware empty-state guard ────────────────────────────────
   // Distinguish: (a) no batches at all, (b) batches exist but none for this
   // enterprise.  Neither case should ever render the dashboard with zero values.
   if (!activeBatch || !calc) {
@@ -663,7 +650,7 @@ function Dashboard({ session }) {
             <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-white text-xs font-medium truncate">{session?.user?.email}</p>
+                <p className="text-white text-xs font-medium truncate">VAFARMER Admin</p>
                 <p className="text-slate-400 text-xs">Farm Manager</p>
               </div>
             )}
@@ -1466,6 +1453,18 @@ function AuthScreen() {
                 className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 placeholder="••••••••"/>
             </div>
+            {mode === "login" && (
+              <div className="text-right -mt-2">
+                <button type="button" onClick={async () => {
+                  if (!email) { setError("Enter your email first."); return; }
+                  const { error } = await supabase.auth.resetPasswordForEmail(email);
+                  if (error) setError(error.message);
+                  else setNotice("Password reset email sent! Check your inbox.");
+                }} className="text-xs text-indigo-500 hover:underline">
+                  Forgot password?
+                </button>
+              </div>
+            )}
             <button type="submit" disabled={loading}
               className="mt-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
               {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
@@ -1511,5 +1510,5 @@ export default function App() {
     );
   }
 
-  return session ? <Dashboard session={session} /> : <AuthScreen />;
+  return session ? <Dashboard /> : <AuthScreen />;
 }
