@@ -77,14 +77,13 @@ const emptyBatch = (name = "New Batch", type = "broiler") => ({
   id: uid(), name, status: "active",
   farm: {
     type,                                              // immutable after creation
- const emptyBatch = (name = "New Batch", type = "broiler") => ({
-  id: uid(), name, status: "active",
-  farm: {
-    type,
-    birdsStocked: 0,
+    birdsStocked: 500,
     dateStocked: new Date().toISOString().split("T")[0],
-    costPerChick: 0, feedCostPerBag: 0, avgBagWeightKg: 0, slaughterAge: 42,
+    costPerChick: 350, feedCostPerBag: 8500, avgBagWeightKg: 25, slaughterAge: 42,
   },
+  mortality: 0, feedLog: [], expenses: [],
+  broilerRev: { avgLiveWeightKg: 2.4, sellingPricePerKg: 2800, currentAvgWeightKg: 0 },
+  layerRev:   { eggsPerDay: 0, pricePerCrate: 2200, eggsPerCrate: 30 },
 });
 
 // ─── Batch financials calculator ──────────────────────────────────────────────
@@ -330,45 +329,63 @@ const AlertCard = ({ type="warning", title, message }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 function Dashboard() {
 
-  // ── 1. State — hydrated from localStorage on first render ─────────────────
-  const [batches, setBatches] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_BATCHES);
-      if (saved) return JSON.parse(saved);
-    } catch {}
- return [emptyBatch("My First Batch", "broiler")];
-  });
+  // ── 1. State ───────────────────────────────────────────────────────────────
+  const [batches, setBatches] = useState([]);
+  const [activeBatchId, setActiveBatchId] = useState(null);
+  const [selectedEnterprise, setSelectedEnterprise] = useState("broiler");
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
 
-  const [activeBatchId, setActiveBatchId] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_ACTIVE);
-      if (saved) return saved;
-    } catch {}
-    return batches[0]?.id ?? null;
-  });
-
-  // Global enterprise filter — persisted so the user returns to the same
-  // context on reload.  Switching enterprise never erases batch data.
-  const [selectedEnterprise, setSelectedEnterprise] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_ENTERPRISE);
-      if (saved === "broiler" || saved === "layer") return saved;
-    } catch {}
-    return "broiler";
-  });
-
-  // ── 2. Persistence effects ─────────────────────────────────────────────────
+  // ── 2. Load session and data from Supabase on mount ───────────────────────
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_BATCHES, JSON.stringify(batches)); } catch {}
-  }, [batches]);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_ACTIVE, activeBatchId ?? ""); } catch {}
-  }, [activeBatchId]);
+    if (!session) return;
+    const load = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("Batches")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: true });
+      if (!error && data && data.length > 0) {
+        const loaded = data.map(r => r.data);
+        setBatches(loaded);
+        setActiveBatchId(loaded[0]?.id ?? null);
+      } else {
+        setBatches([]);
+        setActiveBatchId(null);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [session]);
+
+  // ── 3. Save batches to Supabase whenever they change ──────────────────────
+  const saveToSupabase = useCallback(async (updatedBatches) => {
+    if (!session) return;
+    const userId = session.user.id;
+    // Delete all existing rows for this user then reinsert
+    await supabase.from("Batches").delete().eq("user_id", userId);
+    if (updatedBatches.length > 0) {
+      await supabase.from("Batches").insert(
+        updatedBatches.map(b => ({ user_id: userId, data: b }))
+      );
+    }
+  }, [session]);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_ENTERPRISE, selectedEnterprise); } catch {}
-  }, [selectedEnterprise]);
+    if (!session || loading) return;
+    saveToSupabase(batches);
+  }, [batches]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 3. UI state ────────────────────────────────────────────────────────────
   const [page, setPage]               = useState("overview");
@@ -491,19 +508,16 @@ function Dashboard() {
   }, [activeBatch, updateBatch]);
 
   // ── 9. Reset — clears ALL state and ALL localStorage keys ─────────────────
-  const resetAllData = useCallback(() => {
+  const resetAllData = useCallback(async () => {
     if (!window.confirm("Reset ALL data? This will erase every batch and cannot be undone.")) return;
-   const def = [emptyBatch("My First Batch", "broiler")];
-    setBatches(def);
-    setActiveBatchId(def[0].id);
-    setSelectedEnterprise("broiler");      // reset enterprise to default
+    if (session) {
+      await supabase.from("Batches").delete().eq("user_id", session.user.id);
+    }
+    setBatches([]);
+    setActiveBatchId(null);
+    setSelectedEnterprise("broiler");
     setPage("overview");
-    try {
-      localStorage.removeItem(STORAGE_BATCHES);
-      localStorage.removeItem(STORAGE_ACTIVE);
-      localStorage.removeItem(STORAGE_ENTERPRISE);
-    } catch {}
-  }, []);
+  }, [session]);
 
   // ── Cash flow data ─────────────────────────────────────────────────────────
   const cashFlowData = useMemo(() => {
@@ -574,7 +588,17 @@ function Dashboard() {
     { id:"comparison", label:"Batch Compare", Icon:IcBatch },
   ];
 
-  // ── 10. Enterprise-aware empty-state guard ────────────────────────────────
+  // ── 10. Loading state ─────────────────────────────────────────────────────
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 font-sans">
+      <div className="text-center">
+        <div className="text-4xl mb-3">🐔</div>
+        <p className="text-sm text-slate-400">Loading your farm data…</p>
+      </div>
+    </div>
+  );
+
+  // ── 11. Enterprise-aware empty-state guard ────────────────────────────────
   // Distinguish: (a) no batches at all, (b) batches exist but none for this
   // enterprise.  Neither case should ever render the dashboard with zero values.
   if (!activeBatch || !calc) {
