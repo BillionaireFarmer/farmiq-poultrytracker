@@ -675,7 +675,7 @@ function Dashboard() {
             <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-white text-xs font-medium truncate">VAFARMER Admin</p>
+              <p className="text-white text-xs font-medium truncate">{session?.user?.email}</p>
                 <p className="text-slate-400 text-xs">Farm Manager</p>
               </div>
             )}
