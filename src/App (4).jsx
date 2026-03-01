@@ -334,19 +334,8 @@ function Dashboard({ session }) {
   const [activeBatchId, setActiveBatchId] = useState(null);
   const [selectedEnterprise, setSelectedEnterprise] = useState("broiler");
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
 
-  // ── 2. Load session and data from Supabase on mount ───────────────────────
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // ── 2. Load data from Supabase on mount ───────────────────────────────────
   useEffect(() => {
     if (!session) return;
     const load = async () => {
@@ -373,7 +362,6 @@ function Dashboard({ session }) {
   const saveToSupabase = useCallback(async (updatedBatches) => {
     if (!session) return;
     const userId = session.user.id;
-    // Delete all existing rows for this user then reinsert
     await supabase.from("Batches").delete().eq("user_id", userId);
     if (updatedBatches.length > 0) {
       await supabase.from("Batches").insert(
@@ -675,7 +663,7 @@ function Dashboard({ session }) {
             <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">F</div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-medium truncate">{session?.user?.email}</p>
+                <p className="text-white text-xs font-medium truncate">{session?.user?.email}</p>
                 <p className="text-slate-400 text-xs">Farm Manager</p>
               </div>
             )}
