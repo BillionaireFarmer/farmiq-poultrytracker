@@ -335,7 +335,7 @@ function Dashboard() {
       const saved = localStorage.getItem(STORAGE_BATCHES);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [makeBatch({ name: "Batch Jan 2026" })];
+ return [emptyBatch("My First Batch", "broiler")];
   });
 
   const [activeBatchId, setActiveBatchId] = useState(() => {
@@ -492,7 +492,7 @@ function Dashboard() {
   // ── 9. Reset — clears ALL state and ALL localStorage keys ─────────────────
   const resetAllData = useCallback(() => {
     if (!window.confirm("Reset ALL data? This will erase every batch and cannot be undone.")) return;
-    const def = [makeBatch({ name: "Batch Jan 2026" })];
+   const def = [emptyBatch("My First Batch", "broiler")];
     setBatches(def);
     setActiveBatchId(def[0].id);
     setSelectedEnterprise("broiler");      // reset enterprise to default
