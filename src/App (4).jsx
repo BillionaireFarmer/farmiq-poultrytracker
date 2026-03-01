@@ -327,7 +327,7 @@ const AlertCard = ({ type="warning", title, message }) => {
 // ═════════════════════════════════════════════════════════════════════════════
 // DASHBOARD (auth-protected)
 // ═════════════════════════════════════════════════════════════════════════════
-function Dashboard() {
+function Dashboard({ session }) {
 
   // ── 1. State ───────────────────────────────────────────────────────────────
   const [batches, setBatches] = useState([]);
