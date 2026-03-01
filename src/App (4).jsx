@@ -77,13 +77,14 @@ const emptyBatch = (name = "New Batch", type = "broiler") => ({
   id: uid(), name, status: "active",
   farm: {
     type,                                              // immutable after creation
-    birdsStocked: 500,
+ const emptyBatch = (name = "New Batch", type = "broiler") => ({
+  id: uid(), name, status: "active",
+  farm: {
+    type,
+    birdsStocked: 0,
     dateStocked: new Date().toISOString().split("T")[0],
-    costPerChick: 350, feedCostPerBag: 8500, avgBagWeightKg: 25, slaughterAge: 42,
+    costPerChick: 0, feedCostPerBag: 0, avgBagWeightKg: 0, slaughterAge: 42,
   },
-  mortality: 0, feedLog: [], expenses: [],
-  broilerRev: { avgLiveWeightKg: 2.4, sellingPricePerKg: 2800, currentAvgWeightKg: 0 },
-  layerRev:   { eggsPerDay: 0, pricePerCrate: 2200, eggsPerCrate: 30 },
 });
 
 // ─── Batch financials calculator ──────────────────────────────────────────────
